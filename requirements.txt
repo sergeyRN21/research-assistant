@@ -1,0 +1,22 @@
+# Основа LangGraph и LangChain
+langgraph
+langchain
+langchain-community
+
+# Векторная база
+chromadb
+
+# Эмбеддинги (Hugging Face)
+sentence-transformers
+
+# Работа с PDF
+pypdf
+unstructured[pdf]
+
+# API для arXiv
+arxiv
+# Управление переменными окружения
+python-dotenv
+
+# Опционально: для UI (Streamlit) — можно добавить позже
+streamlit
