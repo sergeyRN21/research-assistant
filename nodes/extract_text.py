@@ -6,24 +6,21 @@ import re
 
 def extract_text(state):
     """
-    Узел 2: Извлекает текст из PDF статей.
-    Скачивает PDF в память, проверяет, есть ли в нём реальный научный текст.
-    
-    Вход: state["papers"] (список с pdf_url)
-    Выход: state["retrieved_texts"] (список строк текста)
+    Узел 2: Извлекает текст из PDF.
+    Отсеивает PDF с метаданными, грантами, лицензиями.
+    Оставляет только статьи с научным содержанием.
     """
     print("📄 Узел: Извлечение текста из PDF...")
     
     papers = state.get("papers", [])
     if not papers:
-        print("⚠️ Нет статей для извлечения текста.")
+        print("⚠️ Нет статей для извлечения.")
         return {"retrieved_texts": []}
     
     retrieved_texts = []
     for i, paper in enumerate(papers):
         pdf_url = paper.get("pdf_url")
         if not pdf_url:
-            print(f"⚠️ У статьи '{paper.get('title', 'Unknown')}' нет PDF-ссылки — пропускаем.")
             continue
 
         print(f"📥 Скачиваем PDF [{i+1}/{len(papers)}]: {pdf_url}")
@@ -36,40 +33,45 @@ def extract_text(state):
             for page in pdf.pages:
                 full_text += page.extract_text() + "\n"
             
-            # 🔥 Проверяем, что текст — не только метаданные
+            # 🔍 Чистим и анализируем текст
             clean_text = re.sub(r'\s+', ' ', full_text).strip()
             
-            # Ключевые индикаторы "мусорного" PDF
-            low_quality_indicators = [
-                "IEEE" in clean_text[:500] and "grant" in clean_text[:800],
-                "Personal use of this material is permitted" in clean_text,
-                "This research was supported by" in clean_text,
-                "©" in clean_text[:200] and "All rights reserved" in clean_text,
+            # ❌ Индикаторы "мусорного" PDF
+            bad_indicators = [
                 len(clean_text) < 1000,
-                "Abstract" not in clean_text[:500],  # если нет Abstract — вероятно, не статья
+                "Personal use of this material is permitted" in clean_text,
+                "©" in clean_text[:300] and "All rights reserved" in clean_text,
+                "This research was supported by" in clean_text,
+                "grant" in clean_text[:500] and "funded" in clean_text[:500],
+                "IEEE" in clean_text[:200] and "Proceedings" in clean_text[:300],
             ]
-            
-            if any(low_quality_indicators):
-                print("⚠️ Пропускаем PDF: только метаданные или слишком короткий")
+            if any(bad_indicators):
+                print("⚠️ Пропускаем: это не полный текст статьи")
                 retrieved_texts.append("")
                 continue
             
-            # Проверяем, есть ли в тексте научные ключевые слова
-            scientific_keywords = ["method", "model", "experiment", "attention", "layer", "network", "dataset", "result"]
-            if not any(kw in clean_text.lower() for kw in scientific_keywords):
-                print("⚠️ Пропускаем PDF: нет научного содержания")
+            # 🔍 Проверяем наличие научной структуры
+            structure_keywords = ["abstract", "introduction", "method", "experiment", "results", "conclusion"]
+            if not any(kw in clean_text.lower()[:1000] for kw in structure_keywords):
+                print("⚠️ Пропускаем: нет структуры научной статьи")
                 retrieved_texts.append("")
                 continue
             
-            # Ограничиваем длину текста
-            text = full_text[:10_000]  # первые 10 000 символов
+            # 🔍 Проверяем наличие ML-терминов
+            tech_terms = ["attention", "kv cache", "quantization", "layer", "embedding", "model", "inference"]
+            if not any(term in clean_text.lower() for term in tech_terms):
+                print("⚠️ Пропускаем: нет технического содержания")
+                retrieved_texts.append("")
+                continue
+            
+            # ✅ Сохраняем только первые 10K символов
+            text = full_text[:10_000]
             retrieved_texts.append(text)
             print(f"✅ Текст извлечён ({len(text)} символов)")
         
         except Exception as e:
             print(f"❌ Ошибка при обработке {pdf_url}: {e}")
-            retrieved_texts.append("")  # добавим пустую строку, чтобы сохранить порядок
+            retrieved_texts.append("")
     
     print(f"✅ Извлечено текстов: {len(retrieved_texts)}")
-    
     return {"retrieved_texts": retrieved_texts}
