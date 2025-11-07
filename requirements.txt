@@ -4,6 +4,7 @@ langchain
 langchain-community
 langchain-openai
 # Векторная база
+faiss-cpu
 chromadb
 
 # Эмбеддинги (Hugging Face)
