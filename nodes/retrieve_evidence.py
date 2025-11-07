@@ -31,8 +31,7 @@ def retrieve_evidence(state):
         # 🔥 Фильтруем: ищем только в чанках с "results" или "experiment"
         docs = vectorstore.similarity_search(
             hypothesis,
-            k=3,
-            filter=lambda m: m.get("contains_results", False) or m.get("contains_experiment", False)
+            k=3
         )
         
         found_chunks = []
