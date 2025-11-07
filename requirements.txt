@@ -2,7 +2,7 @@
 langgraph
 langchain
 langchain-community
-
+langchain-openai
 # Векторная база
 chromadb
 
