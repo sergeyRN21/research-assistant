@@ -65,7 +65,7 @@ def extract_text(state):
                 continue
             
             # ✅ Сохраняем только первые 10K символов
-            text = full_text[:10_000]
+            text = full_text
             retrieved_texts.append(text)
             print(f"✅ Текст извлечён ({len(text)} символов)")
         
