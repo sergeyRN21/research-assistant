@@ -5,6 +5,7 @@ def synthesize_answer(state):
     evidence_list = state.get("evidence", [])
     
     if not evidence_list:
+        print("⚠️ Нет данных для синтеза.")
         return {"final_answer": "❌ Нет данных для формирования ответа."}
 
     confirmed_hypotheses = []
