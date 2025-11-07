@@ -15,7 +15,7 @@ def retrieve_papers(state):
     # Ищем по заголовку и аннотации
     search = arxiv.Search(
         query=question,
-        max_results=10,
+        max_results=3,
         sort_by=arxiv.SortCriterion.Relevance
     )
 
