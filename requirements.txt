@@ -20,3 +20,5 @@ python-dotenv
 
 # Опционально: для UI (Streamlit) — можно добавить позже
 streamlit
+
+pypdf
