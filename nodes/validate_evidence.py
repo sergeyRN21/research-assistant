@@ -10,26 +10,19 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY"),
-    model="mistralai/mistral-7b-instruct"
+    model="google/gemini-2.0-flash-001"
 )
 
+
 def validate_evidence(state):
-    """
-    Узел 5: Проверяет, подтверждают ли найденные фрагменты каждую гипотезу.
-    Использует LLM как судью (LLM-as-a-judge).
-    
-    Вход: state["evidence"] = [{"hypothesis": "...", "chunks": [...]}]
-    Выход: state["evidence"] с добавленным judgment = {"confirmed": bool, "confidence": float, "reason": str}
-    """
     print("✅ Узел: Валидация доказательств (LLM-as-a-Judge)...")
     
     evidence_list = state.get("evidence", [])
     
     if not evidence_list:
         print("⚠️ Нет доказательств для валидации.")
-        return {"evidence": []}
-    
-    # 🔥 Улучшенный промпт: строго требуем JSON
+        return {"evidence": [], "retry_count": state.get("retry_count", 0)}
+
     prompt = ChatPromptTemplate.from_template("""
 Ты — эксперт по научным статьям. Оцени, насколько следующий фрагмент текста **подтверждает** гипотезу.
 
@@ -45,25 +38,24 @@ def validate_evidence(state):
 {{"confirmed": true|false, "partial": true|false, "confidence": 0.0–1.0, "reason": "одно предложение объяснения"}}
 Без дополнительного текста!
 """)
-    
+
     validated_evidence = []
-    
+
     for item in evidence_list:
         hypothesis = item["hypothesis"]
         validated_chunks = []
-        
+
         for chunk_data in item["chunks"]:
             chunk_text = chunk_data["text"]
-            
+
             try:
                 chain = prompt | llm | StrOutputParser()
                 result = chain.invoke({
                     "hypothesis": hypothesis,
                     "chunk": chunk_text
                 })
-                
-                # 🔥 Извлекаем JSON из ответа (на случай, если LLM добавил текст)
-                # Ищем JSON вида {...}
+
+                # Извлекаем JSON из ответа
                 json_match = re.search(r'\{.*\}', result, re.DOTALL)
                 if json_match:
                     json_str = json_match.group(0)
@@ -76,7 +68,7 @@ def validate_evidence(state):
                         "confidence": 0.1,
                         "reason": "parse error"
                     }
-                
+
             except json.JSONDecodeError:
                 print(f"⚠️ Ошибка парсинга JSON: {result}")
                 judgment = {
@@ -93,16 +85,24 @@ def validate_evidence(state):
                     "confidence": 0.1,
                     "reason": "parse error"
                 }
-            
+
             validated_chunks.append({
                 "text": chunk_text,
                 "judgment": judgment
             })
-        
+
         validated_evidence.append({
             "hypothesis": hypothesis,
             "validated_chunks": validated_chunks
         })
-    
+
     print("✅ Все доказательства проверены.")
-    return {"evidence": validated_evidence}
+
+    # 🔥 Обновляем retry_count: если это первый проход — увеличиваем
+    current_retry = state.get("retry_count", 0)
+    new_retry = current_retry + 1 if current_retry == 0 else current_retry
+
+    return {
+        "evidence": validated_evidence,
+        "retry_count": new_retry
+    }
