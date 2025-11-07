@@ -3,7 +3,7 @@ import streamlit as st
 from dotenv import load_dotenv
 load_dotenv()
 
-# Импортируй узлы
+# Убираем импорт utils/cache
 from nodes.retrieve_papers import retrieve_papers
 from nodes.extract_text import extract_text
 from nodes.generate_hypotheses import generate_hypotheses
@@ -21,113 +21,92 @@ st.markdown("""
 
 question = st.text_input("Введите научный вопрос:", placeholder="Какие методы снижают KV-cache в LLM?")
 
-# Кнопка запуска
-if st.button("🔍 Запустить анализ") and question.strip():
-    st.session_state.question = question
-    st.session_state.step = 1
-    st.session_state.state = {
-        "question": question,
-        "papers": [],
-        "retrieved_texts": [],
-        "hypotheses": [],
-        "evidence": [],
-        "final_answer": "",
-        "retry_count": 0,
-        "error": ""
-    }
+if st.button("🔍 Запустить анализ"):
+    if not question.strip():
+        st.error("Введите вопрос!")
+    else:
+        # Начальное состояние
+        initial_state = {
+            "question": question,
+            "papers": [],
+            "retrieved_texts": [],
+            "hypotheses": [],
+            "evidence": [],
+            "final_answer": "",
+            "retry_count": 0,
+            "error": ""
+        }
 
-# Список шагов для отображения
-step_names = [
-    "Поиск статей",
-    "Извлечение текста",
-    "Генерация гипотез",
-    "Поиск доказательств",
-    "Валидация доказательств",
-    "Синтез ответа"
-]
+        # Показываем прогресс
+        status_text = st.empty()
+        progress_bar = st.progress(0)
 
-# Показываем прогресс, если есть активный процесс
-if 'step' in st.session_state and st.session_state.step <= len(step_names):
-    current_step = st.session_state.step
-    state = st.session_state.state
+        def update_progress(step, total=6):
+            progress = step / total
+            progress_bar.progress(progress)
+            status_text.text(f"🔄 Выполняется: {step}/6 — {step_names[step - 1]}")
 
-    status_text = st.empty()
-    progress_bar = st.progress(0)
+        step_names = [
+            "Поиск статей",
+            "Извлечение текста",
+            "Генерация гипотез",
+            "Поиск доказательств",
+            "Валидация доказательств",
+            "Синтез ответа"
+        ]
 
-    for i in range(1, current_step):
-        status_text.text(f"✅ {i}/6 — {step_names[i-1]}")
-        progress_bar.progress(i / 6)
+        with st.spinner("🚀 Запуск анализа..."):
+            try:
+                # Запускаем по шагам
+                status_text.text("🔄 1/6 Поиск статей...")
+                progress_bar.progress(0.1)
+                state_step1 = retrieve_papers(initial_state)
+                update_progress(1)
 
-    status_text.text(f"🔄 {current_step}/6 — {step_names[current_step-1]}")
+                status_text.text("🔄 2/6 Извлечение текста...")
+                progress_bar.progress(0.2)
+                state_step2 = extract_text(state_step1)
+                update_progress(2)
 
-    # === Шаг 1: Поиск статей ===
-    if current_step == 1:
-        updated = retrieve_papers(state)
-        st.session_state.state.update(updated)
-        st.session_state.step = 2
-        st.rerun()
+                status_text.text("🔄 3/6 Генерация гипотез...")
+                progress_bar.progress(0.4)
+                state_step3 = generate_hypotheses(state_step2)
+                update_progress(3)
 
-    # === Шаг 2: Извлечение текста ===
-    elif current_step == 2:
-        updated = extract_text(state)
-        st.session_state.state.update(updated)
-        st.session_state.step = 3
-        st.rerun()
+                status_text.text("🔄 4/6 Поиск доказательств...")
+                progress_bar.progress(0.6)
+                state_step4 = retrieve_evidence(state_step3)
+                update_progress(4)
 
-    # === Шаг 3: Генерация гипотез ===
-    elif current_step == 3:
-        updated = generate_hypotheses(state)
-        st.session_state.state.update(updated)
-        st.session_state.step = 4
-        st.rerun()
+                status_text.text("🔄 5/6 Валидация доказательств...")
+                progress_bar.progress(0.8)
+                state_step5 = validate_evidence(state_step4)
+                update_progress(5)
 
-    # === Шаг 4: Поиск доказательств ===
-    elif current_step == 4:
-        updated = retrieve_evidence(state)
-        st.session_state.state.update(updated)
-        st.session_state.step = 5
-        st.rerun()
+                status_text.text("🔄 6/6 Синтез ответа...")
+                progress_bar.progress(0.95)
+                final_output = synthesize_answer(state_step5)
+                update_progress(6)
 
-    # === Шаг 5: Валидация доказательств ===
-    elif current_step == 5:
-        updated = validate_evidence(state)
-        st.session_state.state.update(updated)
-        st.session_state.step = 6
-        st.rerun()
+                # Финальный результат
+                st.success("✅ Анализ завершён!")
+                st.markdown("### 📝 Ответ")
+                st.markdown(final_output["final_answer"])
 
-    # === Шаг 6: Синтез ответа ===
-    elif current_step == 6:
-        updated = synthesize_answer(state)
-        st.session_state.state.update(updated)
-        st.session_state.step = 7  # завершён
-        st.rerun()
+                # Цепочка доказательств
+                st.markdown("### 🔗 Цепочка доказательств")
+                evidence = state_step5.get("evidence", [])
+                for item in evidence:
+                    with st.expander(f"Гипотеза: {item['hypothesis']}"):
+                        for vc in item["validated_chunks"]:
+                            j = vc["judgment"]
+                            status = "✅ Подтверждено" if j["confirmed"] else ("🟡 Частично" if j["partial"] else "❌ Не подтверждено")
+                            st.markdown(f"""
+                            - **Статус**: {status}  
+                            - **Уверенность**: {j['confidence']:.2f}  
+                            - **Причина**: {j['reason']}  
+                            - **Фрагмент**: *{vc['text'][:300]}...*
+                            """)
 
-# === Финальный вывод ===
-if 'step' in st.session_state and st.session_state.step == 7:
-    final_output = st.session_state.state
-    st.success("✅ Анализ завершён!")
-    
-    st.markdown("### 📝 Ответ")
-    st.markdown(final_output["final_answer"])
-
-    st.markdown("### 🔗 Цепочка доказательств")
-    evidence = final_output.get("evidence", [])
-    for item in evidence:
-        with st.expander(f"Гипотеза: {item['hypothesis']}"):
-            for vc in item["validated_chunks"]:
-                j = vc["judgment"]
-                status = "✅ Подтверждено" if j["confirmed"] else ("🟡 Частично" if j["partial"] else "❌ Не подтверждено")
-                st.markdown(f"""
-                - **Статус**: {status}  
-                - **Уверенность**: {j['confidence']:.2f}  
-                - **Причина**: {j['reason']}  
-                - **Фрагмент**: *{vc['text'][:300]}...*
-                """)
-
-# Очистка (опционально)
-if st.button("🔄 Новый запрос"):
-    if 'step' in st.session_state:
-        del st.session_state.step
-        del st.session_state.state
-        del st.session_state.question
-    st.rerun()
+            except Exception as e:
+                st.error(f"❌ Ошибка: {e}")

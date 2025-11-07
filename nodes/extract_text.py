@@ -1,11 +1,13 @@
 # nodes/extract_text.py
 import requests
-from pypdf import PdfReader  # 🔥 Заменили PyPDF2 на pypdf
+from pypdf import PdfReader
 import io
 
 def extract_text(state):
     """
     Узел 2: Извлекает текст из PDF статей.
+    Скачивает PDF в память, не сохраняя на диск.
+    
     Вход: state["papers"] (список с pdf_url)
     Выход: state["retrieved_texts"] (список строк текста)
     """
@@ -33,7 +35,7 @@ def extract_text(state):
             for page in pdf.pages:
                 text += page.extract_text() + "\n"
             
-            # 🔥 Ограничим длину текста (чтобы не перегружать LLM)
+            # Ограничим длину текста
             text = text[:10_000]  # первые 10 000 символов
             retrieved_texts.append(text)
             print(f"✅ Текст извлечён ({len(text)} символов)")
