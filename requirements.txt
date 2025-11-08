@@ -3,6 +3,7 @@ langgraph
 langchain
 langchain-community
 langchain-openai
+langchain_huggingface 
 # Векторная база
 faiss-cpu
 chromadb
