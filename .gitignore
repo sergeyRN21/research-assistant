@@ -1,0 +1,6 @@
+/my_env
+.env
+.gitignore
+/__pycache__
+/nodes/__pycache__
+/tests
