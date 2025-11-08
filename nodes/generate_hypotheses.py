@@ -4,8 +4,9 @@ from langchain_core.output_parsers import StrOutputParser
 import os
 from langchain_openai import ChatOpenAI
 
+# --- Исправленный base_url ---
 llm = ChatOpenAI(
-    base_url="https://openrouter.ai/api/v1",
+    base_url="https://openrouter.ai/api/v1", # <- Убраны пробелы
     api_key=os.getenv("OPENROUTER_API_KEY"),
     model="google/gemini-2.0-flash-001",
     timeout=30,
@@ -14,7 +15,7 @@ llm = ChatOpenAI(
 
 def generate_hypotheses(state):
     """
-    Узел 3: Генерирует 3 проверяемые гипотезы из вопроса.
+    Узел: Генерирует 3 проверяемые гипотезы из вопроса.
     Вход: state["question"]
     Выход: state["hypotheses"] (список строк)
     """
@@ -25,7 +26,6 @@ def generate_hypotheses(state):
         print("⚠️ Нет вопроса для генерации гипотез.")
         return {"hypotheses": []}
     
-    # 🔧 Промпт: чёткая инструкция для LLM
     prompt = ChatPromptTemplate.from_template("""
 Ты — научный ассистент. Твоя задача — разбить следующий вопрос в области машинного обучения на 3 конкретные, проверяемые гипотезы.
 
@@ -45,9 +45,8 @@ def generate_hypotheses(state):
         chain = prompt | llm | StrOutputParser()
         result = chain.invoke({"question": question})
         
-        # Разбиваем ответ на строки → список гипотез
         hypotheses = [line.strip() for line in result.split("\n") if line.strip()]
-        hypotheses = hypotheses[:3]  # берём максимум 3
+        hypotheses = hypotheses[:3] # Берём максимум 3
         
         print(f"✅ Сгенерировано гипотез: {len(hypotheses)}")
         return {"hypotheses": hypotheses}

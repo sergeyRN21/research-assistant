@@ -3,7 +3,7 @@ import requests
 from pypdf import PdfReader
 import io
 import re
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 def extract_text(state):
     """

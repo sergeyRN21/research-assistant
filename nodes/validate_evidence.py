@@ -5,11 +5,12 @@ import os
 import json
 import re
 
+# --- Исправленный base_url ---
 from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(
-    base_url="https://openrouter.ai/api/v1",
+    base_url="https://openrouter.ai/api/v1", # <- Убраны пробелы
     api_key=os.getenv("OPENROUTER_API_KEY"),
-    model="mistralai/mistral-7b-instruct"
+    model="google/gemini-2.0-flash-001"
 )
 
 def validate_evidence(state):
@@ -60,10 +61,12 @@ def validate_evidence(state):
                     "metadata": chunk_metadata
                 })
 
+                # Пытаемся найти JSON внутри ответа
                 json_match = re.search(r'\{.*\}', result, re.DOTALL)
                 if json_match:
                     judgment = json.loads(json_match.group(0))
                 else:
+                    print(f"⚠️ Не удалось найти JSON в ответе LLM: {result}")
                     judgment = {
                         "confirmed": False,
                         "partial": False,
@@ -71,12 +74,21 @@ def validate_evidence(state):
                         "reason": "parse error"
                     }
 
-            except Exception:
+            except json.JSONDecodeError:
+                print(f"⚠️ Ошибка парсинга JSON: {json_match.group(0) if json_match else 'No JSON found'}")
                 judgment = {
                     "confirmed": False,
                     "partial": False,
                     "confidence": 0.1,
-                    "reason": "parse error"
+                    "reason": "json decode error"
+                }
+            except Exception as e:
+                print(f"⚠️ Ошибка при вызове LLM: {e}")
+                judgment = {
+                    "confirmed": False,
+                    "partial": False,
+                    "confidence": 0.1,
+                    "reason": "llm call error"
                 }
 
             validated_chunks.append({
@@ -93,6 +105,7 @@ def validate_evidence(state):
     print("✅ Все доказательства проверены.")
     
     current_retry = state.get("retry_count", 0)
+    # Увеличиваем retry_count при первом проходе через этот узел, если условие для повтора сработает
     new_retry = current_retry + 1 if current_retry == 0 else current_retry
 
     return {

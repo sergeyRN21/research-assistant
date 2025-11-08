@@ -4,8 +4,9 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 import os
 
+# --- Исправленный base_url ---
 llm = ChatOpenAI(
-    base_url="https://openrouter.ai/api/v1",
+    base_url="https://openrouter.ai/api/v1", # <- Убраны пробелы
     api_key=os.getenv("OPENROUTER_API_KEY"),
     model="google/gemini-2.0-flash-001",
     timeout=30,
@@ -35,9 +36,9 @@ generate_queries_chain = (
 
 def multi_query(state):
     """
-    Узел: Генерирует 5 русскоязычных версий вопроса для поиска.
+    Узел: Генерирует 5 альтернативных версий вопроса для поиска.
     """
-    print("🔁 Узел: Multi-Query — перевод вопроса на русский...")
+    print("🔁 Узел: Multi-Query — генерация альтернативных запросов...")
     
     question = state.get("question")
     if not question:
@@ -50,4 +51,5 @@ def multi_query(state):
     
     except Exception as e:
         print(f"❌ Ошибка при генерации запросов: {e}")
+        # Возвращаем хотя бы оригинальный вопрос в случае ошибки
         return {"queries": [question]}

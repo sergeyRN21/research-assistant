@@ -1,20 +1,26 @@
 # nodes/retrieve_evidence.py
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+# nodes/retrieve_evidence.py (с использованием embedding_loader)
+from .embedding_loader import get_embedding_model # Импорт из соседнего файла
 
-embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
+# embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5") # Удалить эту строку
+embedding_model = get_embedding_model() # Загрузить через функцию
+
+# ... остальной код остаётся тем же
 
 def retrieve_evidence(state):
     """
-    Узел: Для каждого запроса из `state["queries"]` находит релевантные чанки.
+    Узел: Для каждой гипотезы из `state["hypotheses"]` находит релевантные чанки.
+    Использует multi-query из `state["queries"]` для поиска по каждому гипотезному запросу.
     """
-    print("🔎 Узел: Поиск доказательств по multi-query...")
-    
-    queries = state.get("queries", [])
+    print("🔎 Узел: Поиск доказательств по гипотезам...")
+
+    hypotheses = state.get("hypotheses", [])
+    queries = state.get("queries", []) # Multi-query варианты
     chunks_data = state.get("chunks_with_metadata", [])
 
-    if not queries or not chunks_data:
-        print("⚠️ Нет запросов или чанков.")
+    if not hypotheses or not chunks_data:
+        print("⚠️ Нет гипотез или чанков для поиска доказательств.")
         return {"evidence": []}
 
     # Подготовка текстов и метаданных
@@ -37,23 +43,31 @@ def retrieve_evidence(state):
                     unique_docs.append(doc)
         return unique_docs
 
-    # Ищем по каждому запросу
-    all_docs = []
-    for query in queries:
-        print(f"🔍 Поиск: '{query}'")
-        docs = retriever.invoke(query)
-        all_docs.append(docs)
+    evidence_list = []
 
-    # Объединяем
-    unique_docs = get_unique_union(all_docs)
+    # Для каждой гипотезы
+    for hypothesis in hypotheses:
+        print(f"🔍 Поиск доказательств для гипотезы: '{hypothesis}'")
+        # Собираем все поисковые запросы (оригинальная гипотеза + multi-query варианты)
+        search_queries = [hypothesis] + queries
 
-    # Формируем evidence
-    evidence_items = []
-    for i, doc in enumerate(unique_docs):
-        evidence_items.append({
-            "hypothesis": f"Relevant fragment (query-translated) {i+1}",  # ← это будет заменено в validate_evidence
-            "chunks": [{"text": doc.page_content, "metadata": doc.metadata}]
+        all_docs_for_hyp = []
+        for query in search_queries:
+            print(f"   📄 Поиск по запросу: '{query}'")
+            docs = retriever.invoke(query)
+            all_docs_for_hyp.append(docs)
+
+        # Объединяем результаты для этой гипотезы без дубликатов
+        unique_docs_for_hyp = get_unique_union(all_docs_for_hyp)
+
+        # Формируем список чанков для этой гипотезы
+        chunks_for_hyp = [{"text": doc.page_content, "metadata": doc.metadata} for doc in unique_docs_for_hyp]
+
+        # Добавляем в итоговый список evidence
+        evidence_list.append({
+            "hypothesis": hypothesis,
+            "chunks": chunks_for_hyp
         })
 
-    print(f"✅ Найдено {len(evidence_items)} фрагментов")
-    return {"evidence": evidence_items}
+    print(f"✅ Сформировано {len(evidence_list)} элементов доказательства.")
+    return {"evidence": evidence_list}

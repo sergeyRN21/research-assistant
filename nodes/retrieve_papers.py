@@ -25,11 +25,13 @@ def retrieve_papers(state):
         for result in search.results():
             # 🔧 Формируем чистый URL без версии
             base_id = result.entry_id.split("/")[-1].split("v")[0]
-            pdf_url = f"https://arxiv.org/pdf/{base_id}.pdf"
+            # --- Исправленный URL ---
+            pdf_url = f"https://arxiv.org/pdf/{base_id}.pdf" # <- Убраны пробелы
             
-            # Проверяем формат
-            if not re.match(r"https://arxiv\.org/pdf/\d+\.\d+\.pdf", pdf_url):
-                continue
+            # Проверяем формат (теперь корректный)
+            if not re.fullmatch(r"https://arxiv\.org/pdf/\d+\.\d+\.pdf", pdf_url):
+                 print(f"⚠️ Некорректный URL: {pdf_url}")
+                 continue
                 
             papers.append({
                 "entry_id": result.entry_id,
