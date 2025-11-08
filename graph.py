@@ -4,6 +4,7 @@ from state import GraphState
 
 from nodes.retrieve_papers import retrieve_papers
 from nodes.extract_text import extract_text
+from nodes.generate_hypotheses import generate_hypotheses
 from nodes.multi_query import multi_query
 from nodes.retrieve_evidence import retrieve_evidence
 from nodes.validate_evidence import validate_evidence
@@ -28,6 +29,7 @@ workflow = StateGraph(GraphState)
 workflow.add_node("retrieve_papers", retrieve_papers)
 workflow.add_node("extract_text", extract_text)
 workflow.add_node("multi_query", multi_query)
+workflow.add_node("generate_hypotheses", generate_hypotheses)
 workflow.add_node("retrieve_evidence", retrieve_evidence)
 workflow.add_node("validate_evidence", validate_evidence)
 workflow.add_node("synthesize_answer", synthesize_answer)
@@ -37,9 +39,10 @@ workflow.set_entry_point("retrieve_papers")
 
 # Последовательность узлов
 workflow.add_edge("retrieve_papers", "extract_text")
-workflow.add_edge("extract_text", "multi_query")
-workflow.add_edge("multi_query", "retrieve_evidence")
-workflow.add_edge("retrieve_evidence", "validate_evidence")
+workflow.add_edge("extract_text", "generate_hypotheses")  # генерируем гипотезы из оригинального вопроса
+workflow.add_edge("extract_text", "multi_query")  # генерируем запросы для поиска
+workflow.add_edge("multi_query", "retrieve_evidence")  # ищем доказательства по запросам
+workflow.add_edge("retrieve_evidence", "validate_evidence")  # проверяем доказательства
 
 # Условный переход: retry или ответ
 workflow.add_conditional_edges(

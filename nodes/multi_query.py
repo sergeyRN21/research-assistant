@@ -13,16 +13,16 @@ llm = ChatOpenAI(
 )
 
 # Промпт: генерация 5 научных версий запроса
-template = """You are an AI language model assistant. Your task is to generate five 
-different versions of the given user question to retrieve relevant documents from a vector database. 
+template = """Вы являетесь ассистентом по языковой модели искусственного интеллекта. Ваша задача - сгенерировать пять
+различных версий заданного пользователем вопроса для извлечения соответствующих документов из векторной базы данных. 
 
-By generating multiple perspectives on the user question, your goal is to help overcome some of the limitations 
-of distance-based similarity search. Focus on scientific terminology used in machine learning papers.
+Создавая несколько точек зрения на вопрос пользователя, ваша цель - помочь преодолеть некоторые ограничения
+поиска сходства на основе расстояния. Сосредоточьтесь на научной терминологии, используемой в статьях по машинному обучению.
 
-Provide these alternative questions separated by newlines. 
-Do not number or add prefixes.
+Задавайте эти альтернативные вопросы, разделяя их новыми строками. 
+Не нумеруйте и не добавляйте префиксы.
 
-Original question: {question}
+Оригинальный вопрос: {question}
 """
 prompt_perspectives = ChatPromptTemplate.from_template(template)
 
