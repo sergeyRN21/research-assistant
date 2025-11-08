@@ -12,7 +12,7 @@ def retrieve_evidence(state):
         print("⚠️ Нет запросов или чанков.")
         return {"evidence": []}
 
-    # 🔥_lazy_load_эмбеддинги
+    # 🔥 Lazy load эмбеддингов — только при вызове
     embedding_model = get_embedding_model()
 
     # Подготовка данных для FAISS
