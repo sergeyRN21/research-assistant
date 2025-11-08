@@ -3,11 +3,11 @@ import requests
 from pypdf import PdfReader
 import io
 import re
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 def extract_text(state):
     """
-    Узел 2: Извлекает полный текст из PDF и разбивает на чанки с метаданными.
+    Узел: Извлекает полный текст из PDF и разбивает на чанки с метаданными.
     """
     print("📄 Узел: Извлечение текста из PDF...")
     
@@ -32,20 +32,20 @@ def extract_text(state):
             for page in pdf.pages:
                 full_text += page.extract_text() + "\n"
             
-            # 🔍 Проверяем, что это научная статья (а не обёртка)
+            # Проверяем, что это научная статья
             clean_text = re.sub(r'\s+', ' ', full_text).strip()
             required_sections = ["abstract", "introduction", "method", "experiment", "results", "conclusion"]
             if not any(kw in clean_text.lower()[:2000] for kw in required_sections):
                 print("⚠️ Пропускаем: нет структуры научной статьи")
                 continue
 
-            # 🔍 Проверяем наличие технических терминов
+            # Проверяем, есть ли технические термины
             tech_terms = ["kv cache", "attention", "reasoning", "model", "inference", "quantization", "layer"]
             if not any(term in clean_text.lower() for term in tech_terms):
                 print("⚠️ Пропускаем: нет технического содержания")
                 continue
 
-            # 🔥 Разбиваем на чанки
+            # Разбиваем на чанки
             splitter = RecursiveCharacterTextSplitter(
                 separators=["\n\n", "\n", ".", " ", ""],
                 chunk_size=1000,
@@ -53,7 +53,7 @@ def extract_text(state):
             )
             chunks = splitter.split_text(full_text)
 
-            # 🔥 Добавляем метаданные к каждому чанку
+            # Добавляем метаданные
             for chunk in chunks:
                 metadata = {
                     "source_title": paper.get("title", ""),
@@ -61,7 +61,7 @@ def extract_text(state):
                     "contains_results": any(kw in chunk.lower() for kw in ["result", "accuracy", "throughput", "memory", "table", "figure"]),
                     "contains_experiment": any(kw in chunk.lower() for kw in ["experiment", "benchmark", "dataset", "eval"]),
                     "contains_figures": "figure" in chunk.lower() or "table" in chunk.lower(),
-                    "page_estimate": len(full_text[:full_text.find(chunk)]) // 2000 + 1  # грубая оценка
+                    "page_estimate": len(full_text[:full_text.find(chunk)]) // 2000 + 1
                 }
                 all_chunks_with_metadata.append({
                     "text": chunk,

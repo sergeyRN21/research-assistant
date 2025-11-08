@@ -6,11 +6,10 @@ embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
 
 def retrieve_evidence(state):
     """
-    Узел 4: Для каждого запроса находит релевантные чанки через FAISS.
-    Использует метаданные для фильтрации (например, только где есть 'results').
+    Узел: Для каждого запроса из `state["queries"]` находит релевантные чанки.
     """
-    print("🔎 Узел: Поиск доказательств с фильтрацией по метаданным...")
-
+    print("🔎 Узел: Поиск доказательств по multi-query...")
+    
     queries = state.get("queries", [])
     chunks_data = state.get("chunks_with_metadata", [])
 
@@ -18,48 +17,43 @@ def retrieve_evidence(state):
         print("⚠️ Нет запросов или чанков.")
         return {"evidence": []}
 
-    # Подготовка данных для FAISS
+    # Подготовка текстов и метаданных
     texts = [chunk["text"] for chunk in chunks_data]
-    metadatas = [chunk["metadata"] for chunk in chunks_data]
+    metadatas = [chunk.get("metadata", {}) for chunk in chunks_data]
 
+    # Создаём векторное хранилище
     vectorstore = FAISS.from_texts(texts=texts, embedding=embedding_model, metadatas=metadatas)
-    
-    # Функция: уникальное объединение документов
-    def get_unique_union(docs_list):
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+    # Функция: объединение без дубликатов
+    def get_unique_union(docs_lists):
         seen = set()
         unique_docs = []
-        for doc in docs_list:
-            content_hash = hash(doc.page_content[:200])
-            if content_hash not in seen:
-                seen.add(content_hash)
-                unique_docs.append(doc)
+        for docs in docs_lists:
+            for doc in docs:
+                content_hash = hash(doc.page_content[:100])
+                if content_hash not in seen:
+                    seen.add(content_hash)
+                    unique_docs.append(doc)
         return unique_docs
 
-    evidence_items = []
+    # Ищем по каждому запросу
+    all_docs = []
     for query in queries:
-        print(f"🔍 Поиск по запросу: '{query[:60]}...'")
+        print(f"🔍 Поиск: '{query}'")
+        docs = retriever.invoke(query)
+        all_docs.append(docs)
 
-        # 🔥 Ищем только в чанках с результатами или методами
-        docs = vectorstore.similarity_search_with_score(
-            query,
-            k=3,
-            filter=lambda m: m.get("contains_results", False) or m.get("contains_method", False)
-        )
-        
-        # Убираем дубликаты
-        unique_docs = get_unique_union([doc for doc, _ in docs])
+    # Объединяем
+    unique_docs = get_unique_union(all_docs)
 
-        found_chunks = []
-        for doc in unique_docs:
-            found_chunks.append({
-                "text": doc.page_content,
-                "metadata": doc.metadata
-            })
-
+    # Формируем evidence
+    evidence_items = []
+    for i, doc in enumerate(unique_docs):
         evidence_items.append({
-            "hypothesis": f"Relevant fragment (query-translated): {query}",  # можно заменить на генерацию гипотез
-            "chunks": found_chunks
+            "hypothesis": f"Relevant fragment (query-translated) {i+1}",  # ← это будет заменено в validate_evidence
+            "chunks": [{"text": doc.page_content, "metadata": doc.metadata}]
         })
 
-    print(f"✅ Найдены доказательства для {len(evidence_items)} запросов")
+    print(f"✅ Найдено {len(evidence_items)} фрагментов")
     return {"evidence": evidence_items}
