@@ -4,12 +4,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from graph import app
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# 🚀 Глобальное векторное хранилище — создаётся один раз
+embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
+vectorstore = None  # Инициализируем позже
 
 st.set_page_config(page_title="🧠 Research Assistant", layout="wide")
 st.title("🧠 Research Assistant — Научный ассистент с доказательствами")
 
 question = st.text_input("Введите научный вопрос:", placeholder="Какие методы снижают KV-cache?")
 
+# app.py (внутри кнопки "Запустить анализ")
 if st.button("🔍 Запустить анализ"):
     if not question.strip():
         st.error("Введите вопрос!")
@@ -27,15 +34,32 @@ if st.button("🔍 Запустить анализ"):
 
         with st.spinner("🚀 Анализ выполняется..."):
             try:
-                # ⚡ Единственный вызов — LangGraph делает всё
-                final_state = app.invoke(
-                    initial_state,
-                    config={
-                        "recursion_limit": 10,
-                        "metadata": {"source": "streamlit-ui", "user_query": question}
-                    }
-                )
-                
+                # 1. Сначала получаем чанки
+                result = app.invoke(initial_state, config={"recursion_limit": 10})
+                chunks_data = result.get("chunks_with_metadata", [])
+
+                # 2. Если есть чанки — создаем vectorstore
+                if chunks_data:
+                    texts = [chunk["text"] for chunk in chunks_data]
+                    metadatas = [chunk.get("metadata", {}) for chunk in chunks_data]
+
+                    # 🚀 Создаём векторное хранилище один раз
+                    global_vectorstore = FAISS.from_texts(
+                        texts=texts,
+                        embedding=embedding_model,
+                        metadatas=metadatas
+                    )
+
+                    # 3. Устанавливаем его в graph
+                    from graph import set_global_vectorstore
+                    set_global_vectorstore(global_vectorstore)
+
+                    # 4. Повторно запускаем граф — теперь с vectorstore
+                    final_state = app.invoke(result, config={"recursion_limit": 10})
+
+                else:
+                    final_state = result
+
                 st.success("✅ Анализ завершён!")
                 st.markdown("### 📝 Ответ")
                 st.markdown(final_state["final_answer"])
