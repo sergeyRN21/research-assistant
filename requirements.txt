@@ -7,6 +7,10 @@ langchain-openai
 faiss-cpu
 chromadb
 
+flash-attn>=2.4.0.post1
+torch>=2.0
+transformers>=4.36
+
 # Эмбеддинги (Hugging Face)
 sentence-transformers
 

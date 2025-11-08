@@ -47,7 +47,7 @@ def extract_text(state):
             # 🔥 Разбиваем на чанки с метаданными
             splitter = RecursiveCharacterTextSplitter(
                 separators=["\n\n", "\n", ".", " ", ""],
-                chunk_size=1000,
+                chunk_size=500,
                 chunk_overlap=100
             )
             chunks = splitter.split_text(full_text)

@@ -16,7 +16,7 @@ def retrieve_papers(state):
     
     search = arxiv.Search(
         query=question,
-        max_results=3,
+        max_results=2,
         sort_by=arxiv.SortCriterion.Relevance
     )
     
