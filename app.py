@@ -30,7 +30,10 @@ if st.button("🔍 Запустить анализ"):
                 # ⚡ Единственный вызов — LangGraph делает всё
                 final_state = app.invoke(
                     initial_state,
-                    config={"recursion_limit": 10}  # достаточно для 1 повтора
+                    config={
+                        "recursion_limit": 10,
+                        "metadata": {"source": "streamlit-ui", "user_query": question}
+                    }
                 )
                 
                 st.success("✅ Анализ завершён!")
