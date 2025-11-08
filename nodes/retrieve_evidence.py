@@ -3,25 +3,20 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en-v1.5")
-
+# nodes/retrieve_evidence.py
 def retrieve_evidence(state):
-    """
-    Узел: для каждого из нескольких запросов выполняет поиск в FAISS.
-    Использует get_unique_union для объединения результатов.
-    """
     print("🔎 Узел: Поиск доказательств по нескольким запросам...")
-    
-    # Получаем запросы от multi_query
+
     queries = state.get("queries", [])
     chunks_data = state.get("chunks_with_metadata", [])
-    
-    if not queries or not chunks_data:  # ✅ Исправлено: было `chunks_`
+
+    if not queries or not chunks_data:
         print("⚠️ Нет запросов или чанков.")
         return {"evidence": []}
 
     # Подготовка данных для FAISS
     texts = [chunk["text"] for chunk in chunks_data]
-    metadatas = [chunk["metadata"] for chunk in chunks_data]
+    metadatas = [chunk.get("metadata", {}) for chunk in chunks_data]  # ✅ Всегда возвращаем dict
 
     # Создаём векторное хранилище
     vectorstore = FAISS.from_texts(texts=texts, embedding=embedding_model, metadatas=metadatas)
@@ -50,17 +45,14 @@ def retrieve_evidence(state):
     unique_docs = get_unique_union(all_docs)
 
     # Формируем evidence
-    evidence = []
-    for query in queries:
-        # Можно добавить метку: "Найдено по запросу: ..."
-        pass
-
-    # Для простоты — используем первый чанк как основу
     evidence_items = []
     for i, doc in enumerate(unique_docs):
         evidence_items.append({
             "hypothesis": f"Relevant fragment (query-translated) {i+1}",
-            "chunks": [{"text": doc.page_content}]
+            "chunks": [{
+                "text": doc.page_content,
+                "metadata": getattr(doc, "metadata", {})  # ✅ Добавляем metadata из FAISS
+            }]
         })
 
     print(f"✅ Найдено {len(unique_docs)} уникальных фрагментов")
