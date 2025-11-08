@@ -1,9 +1,8 @@
 # nodes/retrieve_evidence.py
-def retrieve_evidence(state, vectorstore):
-    """
-    Узел: для каждого из нескольких запросов выполняет поиск в FAISS.
-    Использует переданный vectorstore.
-    """
+from langchain_community.vectorstores import FAISS
+from nodes.embedding_loader import get_embedding_model
+
+def retrieve_evidence(state):
     print("🔎 Узел: Поиск доказательств по нескольким запросам...")
 
     queries = state.get("queries", [])
@@ -13,7 +12,15 @@ def retrieve_evidence(state, vectorstore):
         print("⚠️ Нет запросов или чанков.")
         return {"evidence": []}
 
-    # Получаем retriever из существующего vectorstore
+    # 🔥_lazy_load_эмбеддинги
+    embedding_model = get_embedding_model()
+
+    # Подготовка данных для FAISS
+    texts = [chunk["text"] for chunk in chunks_data]
+    metadatas = [chunk.get("metadata", {}) for chunk in chunks_data]
+
+    # Создаём векторное хранилище
+    vectorstore = FAISS.from_texts(texts=texts, embedding=embedding_model, metadatas=metadatas)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 1})
 
     # Функция: уникальное объединение документов
@@ -45,7 +52,7 @@ def retrieve_evidence(state, vectorstore):
             "hypothesis": f"Relevant fragment (query-translated) {i+1}",
             "chunks": [{
                 "text": doc.page_content,
-                "metadata": getattr(doc, "metadata", {})  # Добавляем metadata из FAISS
+                "metadata": getattr(doc, "metadata", {})
             }]
         })
 
